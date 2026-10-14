@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Pertempuran Troli Sihat: Biru vs Kuning (2-4 Pemain)</title>
+  
+  <!-- MediaPipe Hands untuk Kesan Pergerakan Tangan Serentak -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --panel-bg: rgba(15, 23, 42, 0.92);
+      --blue-team: #38bdf8;
+      --blue-dark: #0369a1;
+      --yellow-team: #facc15;
+      --yellow-dark: #a16207;
+      --good-green: #10b981;
+      --bad-red: #f43f5e;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: #f8fafc;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+    }
+
+    /* Kamera Latar Belakang Cermin */
+    #webcam-video {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+      opacity: 0.42;
+      z-index: 1;
+    }
+
+    /* Lapisan Utama */
+    #game-layer {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    /* Bar Atas */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--panel-bg);
+      padding: 8px 18px;
+      border-bottom: 2px solid rgba(255,255,255,0.15);
+      flex-wrap: wrap;
+      gap: 10px;
+      z-index: 40;
+    }
+
+    .brand-title {
+      font-size: 1.1rem;
+      font-weight: 900;
+      color: #ffffff;
+    }
+
+    .privacy-note {
+      font-size: 0.72rem;
+      color: #94a3b8;
+    }
+
+    /* Papan Markah Tengah & Masa */
+    .scoreboard-center {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: rgba(30, 41, 59, 0.95);
+      padding: 6px 16px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .team-score-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 12px;
+      border-radius: 10px;
+      font-weight: 900;
+    }
+
+    .pill-blue {
+      background: rgba(56, 189, 248, 0.2);
+      border: 2px solid var(--blue-team);
+      color: var(--blue-team);
+    }
+
+    .pill-yellow {
+      background: rgba(250, 204, 21, 0.2);
+      border: 2px solid var(--yellow-team);
+      color: var(--yellow-team);
+    }
+
+    .score-num {
+      font-size: 1.45rem;
+      color: #ffffff;
+    }
+
+    .timer-circle {
+      background: #0f172a;
+      border: 2px solid #ffffff;
+      padding: 4px 12px;
+      border-radius: 10px;
+      text-align: center;
+      min-width: 68px;
+    }
+
+    .timer-label {
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      color: #94a3b8;
+      font-weight: 800;
+    }
+
+    .timer-val {
+      font-size: 1.3rem;
+      font-weight: 900;
+      color: var(--good-green);
+    }
+
+    .controls-box {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .btn-ctrl {
+      background: #334155;
+      color: #ffffff;
+      border: 1px solid #475569;
+      padding: 7px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 0.76rem;
+    }
+
+    .btn-ctrl.active-mode {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: var(--good-green);
+      color: #a7f3d0;
+    }
+
+    /* Gelanggang Berkembar (Split-Screen Kiri vs Kanan) */
+    #split-arena {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      overflow: hidden;
+    }
+
+    .player-side {
+      position: relative;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .side-blue {
+      border-right: 3px solid var(--blue-team);
+      background: linear-gradient(to top, rgba(3, 105, 161, 0.28), transparent 45%);
+    }
+
+    .side-yellow {
+      border-left: 3px solid var(--yellow-team);
+      background: linear-gradient(to top, rgba(161, 98, 7, 0.28), transparent 45%);
+    }
+
+    .zone-watermark {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      z-index: 15;
+      pointer-events: none;
+    }
+
+    .side-blue .zone-watermark {
+      background: rgba(15, 23, 42, 0.85);
+      border: 2px solid var(--blue-team);
+      color: var(--blue-team);
+    }
+
+    .side-yellow .zone-watermark {
+      background: rgba(15, 23, 42, 0.85);
+      border: 2px solid var(--yellow-team);
+      color: var(--yellow-team);
+    }
+
+    /* Troli / Bakul Pemain di Bawah */
+    .player-cart {
+      position: absolute;
+      bottom: 18px;
+      width: 125px;
+      height: 92px;
+      transform: translateX(-50%);
+      z-index: 30;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .cart-label {
+      font-size: 0.72rem;
+      font-weight: 900;
+      padding: 2px 10px;
+      border-radius: 8px;
+      margin-top: -4px;
+      white-space: nowrap;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.5);
+    }
+
+    #cart-blue .cart-label {
+      background: var(--blue-team);
+      color: #0f172a;
+    }
+
+    #cart-yellow .cart-label {
+      background: var(--yellow-team);
+      color: #0f172a;
+    }
+
+    /* Penunjuk Tangan Kamera (Atas Skrin Setiap Pemain) */
+    .hand-indicator {
+      position: absolute;
+      top: 52px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      transform: translateX(-50%);
+      z-index: 35;
+      pointer-events: none;
+      border: 3px solid #ffffff;
+    }
+
+    #dot-blue {
+      background: var(--blue-team);
+      box-shadow: 0 0 14px var(--blue-team);
+    }
+
+    #dot-yellow {
+      background: var(--yellow-team);
+      box-shadow: 0 0 14px var(--yellow-team);
+    }
+
+    /* Objek Makanan Jatuh */
+    .falling-food {
+      position: absolute;
+      width: 86px;
+      height: 96px;
+      transform: translate(-50%, -50%);
+      z-index: 25;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .food-bubble {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      background: #ffffff;
+      padding: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.5);
+    }
+
+    .falling-food.good .food-bubble {
+      border: 4px solid var(--good-green);
+    }
+
+    .falling-food.bad .food-bubble {
+      border: 4px solid var(--bad-red);
+    }
+
+    .food-caption {
+      margin-top: 3px;
+      font-size: 0.7rem;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 6px;
+      white-space: nowrap;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+    }
+
+    .falling-food.good .food-caption {
+      background: #064e3b;
+      color: #a7f3d0;
+      border: 1px solid var(--good-green);
+    }
+
+    .falling-food.bad .food-caption {
+      background: #881337;
+      color: #fecdd3;
+      border: 1px solid var(--bad-red);
+    }
+
+    /* Popup Markah Terapung */
+    .score-pop {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      padding: 6px 12px;
+      border-radius: 12px;
+      font-size: 0.92rem;
+      font-weight: 900;
+      z-index: 60;
+      pointer-events: none;
+      animation: popUp 0.9s ease-out forwards;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    @keyframes popUp {
+      0% { opacity: 1; transform: translate(-50%, 0) scale(0.9); }
+      30% { opacity: 1; transform: translate(-50%, -14px) scale(1.05); }
+      100% { opacity: 0; transform: translate(-50%, -38px) scale(0.95); }
+    }
+
+    /* Skrin Giliran Tukar Pemain (Khusus Mod 2v2 / 4 Orang) */
+    #relay-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.92);
+      z-index: 150;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+    }
+
+    .relay-box {
+      background: #1e293b;
+      border: 4px solid var(--yellow-team);
+      padding: 32px 40px;
+      border-radius: 28px;
+      max-width: 560px;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.85);
+    }
+
+    /* Modal Mula, Tamat & Laporan */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.93);
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+    }
+
+    .modal-box {
+      background: #1e293b;
+      border: 3px solid var(--blue-team);
+      border-radius: 24px;
+      padding: 26px;
+      max-width: 560px;
+      width: 100%;
+      text-align: center;
+    }
+
+    .modal-title {
+      font-size: 1.65rem;
+      font-weight: 900;
+      color: var(--yellow-team);
+      margin-bottom: 8px;
+    }
+
+    .guide-list {
+      background: #0f172a;
+      padding: 15px;
+      border-radius: 14px;
+      text-align: left;
+      margin: 14px 0;
+      font-size: 0.9rem;
+      line-height: 1.55;
+      color: #e2e8f0;
+    }
+
+    .mode-selector-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .btn-mode-start {
+      padding: 14px 16px;
+      border-radius: 14px;
+      border: none;
+      font-weight: 900;
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .btn-2p {
+      background: var(--blue-team);
+      color: #0f172a;
+    }
+
+    .btn-4p {
+      background: var(--yellow-team);
+      color: #0f172a;
+    }
+
+    .vs-result-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin: 16px 0;
+    }
+
+    .team-final-card {
+      padding: 16px;
+      border-radius: 16px;
+      background: #0f172a;
+      border: 3px solid transparent;
+    }
+
+    .btn-danger {
+      background: var(--bad-red);
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 0.84rem;
+      padding: 9px 16px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      margin-top: 12px;
+    }
+
+    @media (max-width: 720px) {
+      .player-cart { width: 96px; height: 74px; }
+      .falling-food { width: 70px; height: 80px; }
+      .food-bubble { width: 54px; height: 54px; }
+      .zone-watermark { font-size: 0.7rem; padding: 4px 10px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Kamera Latar Belakang -->
+  <video id="webcam-video" playsinline></video>
+
+  <!-- Antaramuka Utama -->
+  <div id="game-layer">
+    <div class="top-bar">
+      <div>
+        <div class="brand-title">Pertempuran Troli Sihat (2 - 4 Pemain)</div>
+        <div class="privacy-note" id="cam-status">Memuatkan kamera... (Juga sokong sentuhan jari & papan kekunci).</div>
+      </div>
+
+      <!-- Papan Skor Berkembar -->
+      <div class="scoreboard-center">
+        <div class="team-score-pill pill-blue">
+          <span>BIRU:</span>
+          <span class="score-num" id="score-blue">0</span>
+        </div>
+
+        <div class="timer-circle">
+          <div class="timer-label" id="mode-Indicator-label">Masa</div>
+          <div class="timer-val" id="timer-val">45s</div>
+        </div>
+
+        <div class="team-score-pill pill-yellow">
+          <span>KUNING:</span>
+          <span class="score-num" id="score-yellow">0</span>
+        </div>
+      </div>
+
+      <div class="controls-box">
+        <button class="btn-ctrl" id="btn-open-report" onclick="openReportModal()">Laporan (0)</button>
+        <button class="btn-ctrl" onclick="showStartMenu()">Tukar Mod / Mula</button>
+      </div>
+    </div>
+
+    <!-- Gelanggang Berkembar: Kiri (Biru) vs Kanan (Kuning) -->
+    <div id="split-arena">
+      
+      <!-- GELANGGANG KIRI: PASUKAN BIRU -->
+      <div class="player-side side-blue" id="arena-blue">
+        <div class="zone-watermark" id="watermark-blue">Zon Pasukan Biru (Kiri)</div>
+        <div class="hand-indicator" id="dot-blue" style="left: 50%;"></div>
+
+        <div class="player-cart" id="cart-blue" style="left: 50%;">
+          <svg viewBox="0 0 120 85" width="110" height="75">
+            <path d="M15 20 L105 20 L92 65 L28 65 Z" fill="#0284c7" stroke="#ffffff" stroke-width="4" stroke-linejoin="round"/>
+            <path d="M28 35 L92 35 M32 50 L88 50 M45 20 L45 65 M75 20 L75 65" stroke="#38bdf8" stroke-width="3"/>
+            <circle cx="36" cy="74" r="8" fill="#f8fafc" stroke="#0f172a" stroke-width="3"/>
+            <circle cx="84" cy="74" r="8" fill="#f8fafc" stroke="#0f172a" stroke-width="3"/>
+          </svg>
+          <div class="cart-label">TROLI BIRU</div>
+        </div>
+
+        <div id="items-blue"></div>
+      </div>
+
+      <!-- GELANGGANG KANAN: PASUKAN KUNING -->
+      <div class="player-side side-yellow" id="arena-yellow">
+        <div class="zone-watermark" id="watermark-yellow">Zon Pasukan Kuning (Kanan)</div>
+        <div class="hand-indicator" id="dot-yellow" style="left: 50%;"></div>
+
+        <div class="player-cart" id="cart-yellow" style="left: 50%;">
+          <svg viewBox="0 0 120 85" width="110" height="75">
+            <path d="M15 20 L105 20 L92 65 L28 65 Z" fill="#ca8a04" stroke="#ffffff" stroke-width="4" stroke-linejoin="round"/>
+            <path d="M28 35 L92 35 M32 50 L88 50 M45 20 L45 65 M75 20 L75 65" stroke="#facc15" stroke-width="3"/>
+            <circle cx="36" cy="74" r="8" fill="#f8fafc" stroke="#0f172a" stroke-width="3"/>
+            <circle cx="84" cy="74" r="8" fill="#f8fafc" stroke="#0f172a" stroke-width="3"/>
+          </svg>
+          <div class="cart-label">TROLI KUNING</div>
+        </div>
+
+        <div id="items-yellow"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Overlay Tukar Giliran Pasangan (Khusus Mod 4 Orang / 2v2) -->
+  <div id="relay-overlay">
+    <div class="relay-box">
+      <div style="font-size: 1.9rem; font-weight: 900; color: #facc15; margin-bottom: 8px;">
+        TUKAR PEMAIN! (GILIRAN KEDUA)
+      </div>
+      <p style="font-size: 1.1rem; color: #f8fafc; line-height: 1.5; margin-bottom: 14px;">
+        Pemain Pertama sila beri laluan kepada <strong>Rakan Sepasukan Kedua</strong> untuk menyambung baki 30 saat terakhir!
+      </p>
+      <div style="font-size: 3.2rem; font-weight: 900; color: #38bdf8;" id="relay-countdown">4</div>
+    </div>
+  </div>
+
+  <!-- Modal Pilihan Mod & Mula Permainan -->
+  <div class="modal-overlay" id="start-modal">
+    <div class="modal-box">
+      <div class="modal-title">Pertempuran Troli Pasar Sihat!</div>
+      <p style="color: #cbd5e1; font-size: 0.92rem;">Perlawanan Serentak: Pasukan Biru (Kiri) vs Pasukan Kuning (Kanan)</p>
+      
+      <div class="guide-list">
+        <div><strong>1. Posisi Berdiri:</strong> Pemain Biru berdiri di sebelah <strong>Kiri</strong> kamera, Pemain Kuning di sebelah <strong>Kanan</strong> kamera.</div>
+        <div style="margin-top: 6px; color: #34d399;"><strong>2. Sambut Makanan Berkhasiat:</strong> Sayur, buah, ikan, susu & bijirin penuh beri <strong>+10 Markah</strong>.</div>
+        <div style="margin-top: 6px; color: #fb7185;"><strong>3. Elak Makanan Tidak Sihat:</strong> Terambil air tin manis, sosej atau donat akan <strong>Tolak -10 Markah!</strong></div>
+      </div>
+
+      <p style="font-size: 0.88rem; color: #94a3b8; font-weight: 700;">Pilih Bilangan Pemain Untuk Mula:</p>
+      <div class="mode-selector-grid">
+        <button class="btn-mode-start btn-2p" onclick="startMatch(2)">
+          <span>2 PEMAIN (1 vs 1)</span>
+          <span style="font-size: 0.75rem; font-weight: 700;">45 Saat Berterusan</span>
+        </button>
+        <button class="btn-mode-start btn-4p" onclick="startMatch(4)">
+          <span>4 PEMAIN (2 vs 2 Bergilir)</span>
+          <span style="font-size: 0.75rem; font-weight: 700;">60 Saat (Tukar Rakan Saat Ke-30)</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Keputusan Perlawanan -->
+  <div class="modal-overlay" id="end-modal" style="display: none;">
+    <div class="modal-box">
+      <div class="modal-title" id="winner-banner">Keputusan Perlawanan!</div>
+      <p id="winner-subtext" style="color: #cbd5e1; font-size: 0.95rem;"></p>
+
+      <div class="vs-result-grid">
+        <div class="team-final-card" id="final-card-blue" style="border-color: var(--blue-team);">
+          <div style="color: var(--blue-team); font-weight: 900; font-size: 0.9rem;">PASUKAN BIRU (KIRI)</div>
+          <div style="font-size: 2.5rem; font-weight: 900; margin: 6px 0;" id="final-score-blue">0</div>
+          <div style="font-size: 0.78rem; color: #94a3b8;" id="final-stats-blue">0 Sihat | 0 Jajan</div>
+        </div>
+
+        <div class="team-final-card" id="final-card-yellow" style="border-color: var(--yellow-team);">
+          <div style="color: var(--yellow-team); font-weight: 900; font-size: 0.9rem;">PASUKAN KUNING (KANAN)</div>
+          <div style="font-size: 2.5rem; font-weight: 900; margin: 6px 0;" id="final-score-yellow">0</div>
+          <div style="font-size: 0.78rem; color: #94a3b8;" id="final-stats-yellow">0 Sihat | 0 Jajan</div>
+        </div>
+      </div>
+
+      <p style="font-size: 0.9rem; color: #e2e8f0; line-height: 1.45; margin-bottom: 14px;">
+        Ingat: Semasa membeli-belah di pasar raya, penuhkan troli anda dengan sayur-sayuran, buah-buahan segar, sumber protein tanpa lemak dan bijirin penuh!
+      </p>
+
+      <div class="mode-selector-grid">
+        <button class="btn-mode-start btn-2p" onclick="startMatch(2)">Main Lagi (2 Pemain)</button>
+        <button class="btn-mode-start btn-4p" onclick="startMatch(4)">Main Lagi (4 Pemain / 2v2)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Laporan Output Program -->
+  <div class="modal-overlay" id="report-modal" style="display: none;">
+    <div class="modal-box">
+      <div class="modal-title">Rekod Output: Pertempuran Troli</div>
+      <p style="color: #94a3b8; font-size: 0.85rem;">Mengira jumlah pusingan dan jumlah keseluruhan peserta (2 atau 4 orang setiap pusingan).</p>
+      <div class="guide-list" id="report-summary-box">Memuatkan...</div>
+      <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+        <button class="btn-mode-start btn-4p" style="padding: 12px 22px;" onclick="downloadCSVReport()">Muat Turun CSV (Excel)</button>
+        <button class="btn-ctrl" style="padding: 12px 20px;" onclick="closeReportModal()">Tutup</button>
+      </div>
+      <div>
+        <button class="btn-danger" onclick="clearLocalRecords()">Padam Semua Rekod (Reset Program)</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- 1. KATALOG MAKANAN PASAR RAYA (LUKISAN SVG BERSIH TANPA EMOJI) ---
+    const MARKET_ITEMS = [
+      // MAKANAN SIHAT (+10 MARKAH)
+      {
+        name: "Sayur Sawi",
+        isHealthy: true,
+        svg: `<svg viewBox="0 0 100 100"><rect x="40" y="55" width="20" height="32" rx="4" fill="#84cc16" stroke="#0f172a" stroke-width="4"/><circle cx="35" cy="44" r="18" fill="#15803d" stroke="#0f172a" stroke-width="4"/><circle cx="65" cy="44" r="18" fill="#15803d" stroke="#0f172a" stroke-width="4"/><circle cx="50" cy="30" r="20" fill="#22c55e" stroke="#0f172a" stroke-width="4"/></svg>`
+      },
+      {
+        name: "Ikan Segar",
+        isHealthy: true,
+        svg: `<svg viewBox="0 0 100 100"><path d="M74 50 L94 32 L94 68 Z" fill="#f97316" stroke="#0f172a" stroke-width="4"/><ellipse cx="46" cy="50" rx="32" ry="20" fill="#38bdf8" stroke="#0f172a" stroke-width="4"/><circle cx="28" cy="45" r="4" fill="#0f172a"/></svg>`
+      },
+      {
+        name: "Susu Segar",
+        isHealthy: true,
+        svg: `<svg viewBox="0 0 100 100"><path d="M30 34 L42 18 L70 18 L70 34 Z" fill="#38bdf8" stroke="#0f172a" stroke-width="4"/><rect x="30" y="34" width="40" height="52" rx="4" fill="#f8fafc" stroke="#0f172a" stroke-width="4"/><rect x="30" y="48" width="40" height="18" fill="#0284c7"/></svg>`
+      },
+      {
+        name: "Epal Merah",
+        isHealthy: true,
+        svg: `<svg viewBox="0 0 100 100"><path d="M50 28 C34 18, 18 32, 22 58 C25 80, 42 88, 50 82 C58 88, 75 80, 78 58 C82 32, 66 18, 50 28 Z" fill="#ef4444" stroke="#0f172a" stroke-width="4"/><path d="M52 20 C62 14, 70 20, 60 26 Z" fill="#22c55e"/></svg>`
+      },
+      {
+        name: "Buah Pisang",
+        isHealthy: true,
+        svg: `<svg viewBox="0 0 100 100"><path d="M24 72 C48 82, 78 65, 82 24 C72 20, 70 24, 66 32 C60 56, 42 64, 22 60 Z" fill="#facc15" stroke="#0f172a" stroke-width="4"/></svg>`
+      },
+      {
+        name: "Lobak Merah",
+        isHealthy: true,
+        svg: `<svg viewBox="0 0 100 100"><path d="M50 18 L40 8 M50 18 L50 6 M50 18 L60 8" stroke="#16a34a" stroke-width="5" stroke-linecap="round"/><path d="M32 22 L68 22 L50 90 Z" fill="#f97316" stroke="#0f172a" stroke-width="4" stroke-linejoin="round"/></svg>`
+      },
+
+      // MAKANAN TIDAK SIHAT (-10 MARKAH)
+      {
+        name: "Air Gas Manis",
+        isHealthy: false,
+        svg: `<svg viewBox="0 0 100 100"><rect x="30" y="20" width="40" height="64" rx="6" fill="#ef4444" stroke="#0f172a" stroke-width="4"/><path d="M30 44 L70 56" stroke="#ffffff" stroke-width="6"/></svg>`
+      },
+      {
+        name: "Donat Gula",
+        isHealthy: false,
+        svg: `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="32" fill="#f59e0b" stroke="#0f172a" stroke-width="4"/><circle cx="50" cy="50" r="24" fill="#ec4899"/><circle cx="50" cy="50" r="10" fill="#ffffff" stroke="#0f172a" stroke-width="4"/></svg>`
+      },
+      {
+        name: "Sosej Proses",
+        isHealthy: false,
+        svg: `<svg viewBox="0 0 100 100"><path d="M24 68 C16 58, 28 24, 68 24 C82 24, 86 40, 72 48 C52 58, 40 78, 24 68 Z" fill="#b91c1c" stroke="#0f172a" stroke-width="4"/></svg>`
+      },
+      {
+        name: "Gula Lolipop",
+        isHealthy: false,
+        svg: `<svg viewBox="0 0 100 100"><rect x="47" y="54" width="6" height="36" fill="#cbd5e1" stroke="#0f172a" stroke-width="3"/><circle cx="50" cy="38" r="24" fill="#a855f7" stroke="#0f172a" stroke-width="4"/></svg>`
+      }
+    ];
+
+    // --- 2. PENJANA BUNYI (WEB AUDIO API) ---
+    let audioCtx = null;
+    function playSound(type) {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        const now = audioCtx.currentTime;
+        if (type === 'good') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(587.33, now);
+          osc.frequency.setValueAtTime(880, now + 0.07);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.22);
+          osc.start(now);
+          osc.stop(now + 0.22);
+        } else if (type === 'bad') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(195, now);
+          osc.frequency.linearRampToValueAtTime(125, now + 0.26);
+          gain.gain.setValueAtTime(0.22, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.28);
+          osc.start(now);
+          osc.stop(now + 0.28);
+        } else if (type === 'whistle') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(950, now);
+          osc.frequency.setValueAtTime(1200, now + 0.15);
+          osc.frequency.setValueAtTime(950, now + 0.3);
+          gain.gain.setValueAtTime(0.3, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.55);
+          osc.start(now);
+          osc.stop(now + 0.55);
+        }
+      } catch (e) {}
+    }
+
+    // --- 3. PEMBOLEHUBAH KEADAAN PERLAWANAN ---
+    let playerCountMode = 2; // 2 (1v1) atau 4 (2v2 Bergilir)
+    let timeLeft = 45;
+    let isRunning = false;
+    let isRelayPaused = false;
+    let relayTriggered = false;
+    let activeControlUsed = "Sentuhan / Kekunci";
+
+    // Statistik Pasukan Biru (Kiri) & Kuning (Kanan)
+    let teamBlue = { score: 0, healthyCount: 0, junkCount: 0, targetX: 50, currentX: 50, items: [] };
+    let teamYellow = { score: 0, healthyCount: 0, junkCount: 0, targetX: 50, currentX: 50, items: [] };
+
+    let lastSpawnTime = 0;
+    let lastFrameTime = 0;
+    let matchTimer = null;
+
+    // Elemen DOM
+    const arenaBlueEl = document.getElementById('arena-blue');
+    const arenaYellowEl = document.getElementById('arena-yellow');
+    const itemsBlueEl = document.getElementById('items-blue');
+    const itemsYellowEl = document.getElementById('items-yellow');
+    const cartBlueEl = document.getElementById('cart-blue');
+    const cartYellowEl = document.getElementById('cart-yellow');
+    const dotBlueEl = document.getElementById('dot-blue');
+    const dotYellowEl = document.getElementById('dot-yellow');
+    const scoreBlueEl = document.getElementById('score-blue');
+    const scoreYellowEl = document.getElementById('score-yellow');
+    const timerValEl = document.getElementById('timer-val');
+    const startModalEl = document.getElementById('start-modal');
+    const endModalEl = document.getElementById('end-modal');
+    const reportModalEl = document.getElementById('report-modal');
+    const relayOverlayEl = document.getElementById('relay-overlay');
+
+    function showStartMenu() {
+      isRunning = false;
+      if (matchTimer) clearInterval(matchTimer);
+      endModalEl.style.display = 'none';
+      reportModalEl.style.display = 'none';
+      startModalEl.style.display = 'flex';
+    }
+
+    function startMatch(numPlayers) {
+      playerCountMode = numPlayers;
+      timeLeft = numPlayers === 4 ? 60 : 45;
+      relayTriggered = false;
+      isRelayPaused = false;
+      isRunning = true;
+
+      teamBlue = { score: 0, healthyCount: 0, junkCount: 0, targetX: 50, currentX: 50, items: [] };
+      teamYellow = { score: 0, healthyCount: 0, junkCount: 0, targetX: 50, currentX: 50, items: [] };
+
+      itemsBlueEl.innerHTML = '';
+      itemsYellowEl.innerHTML = '';
+      scoreBlueEl.textContent = '0';
+      scoreYellowEl.textContent = '0';
+      timerValEl.textContent = `${timeLeft}s`;
+
+      document.getElementById('mode-Indicator-label').textContent = numPlayers === 4 ? "Mod 2v2" : "Mod 1v1";
+      document.getElementById('watermark-blue').textContent = numPlayers === 4 ? "Pasukan Biru (Pemain 1)" : "Zon Pasukan Biru (Kiri)";
+      document.getElementById('watermark-yellow').textContent = numPlayers === 4 ? "Pasukan Kuning (Pemain 1)" : "Zon Pasukan Kuning (Kanan)";
+
+      startModalEl.style.display = 'none';
+      endModalEl.style.display = 'none';
+      reportModalEl.style.display = 'none';
+      relayOverlayEl.style.display = 'none';
+
+      if (matchTimer) clearInterval(matchTimer);
+      matchTimer = setInterval(() => {
+        if (!isRunning || isRelayPaused) return;
+        timeLeft--;
+        timerValEl.textContent = `${timeLeft}s`;
+
+        // Jika Mod 4 Pemain (2v2), hentikan sekejap pada saat ke-30 untuk tukar pasangan
+        if (playerCountMode === 4 && timeLeft === 30 && !relayTriggered) {
+          triggerRelaySwap();
+          return;
+        }
+
+        if (timeLeft <= 0) {
+          finishMatch();
+        }
+      }, 1000);
+
+      lastFrameTime = performance.now();
+      lastSpawnTime = lastFrameTime;
+    }
+
+    // Jeda 4 Saat untuk Tukar Rakan Sepasukan (Mod 4 Pemain)
+    function triggerRelaySwap() {
+      relayTriggered = true;
+      isRelayPaused = true;
+      playSound('whistle');
+
+      let count = 4;
+      const countEl = document.getElementById('relay-countdown');
+      countEl.textContent = count;
+      relayOverlayEl.style.display = 'flex';
+
+      const swapInterval = setInterval(() => {
+        count--;
+        if (count > 0) {
+          countEl.textContent = count;
+        } else {
+          clearInterval(swapInterval);
+          relayOverlayEl.style.display = 'none';
+          document.getElementById('watermark-blue').textContent = "Pasukan Biru (Pemain 2)";
+          document.getElementById('watermark-yellow').textContent = "Pasukan Kuning (Pemain 2)";
+          playSound('whistle');
+          lastFrameTime = performance.now();
+          isRelayPaused = false;
+        }
+      }, 1000);
+    }
+
+    // Jana Makanan Serentak & Adil di Kedua-dua Gelanggang
+    function spawnSymmetricalWave() {
+      const healthyPool = MARKET_ITEMS.filter(i => i.isHealthy);
+      const junkPool = MARKET_ITEMS.filter(i => !i.isHealthy);
+
+      // 65% peluang makanan sihat, 35% makanan tidak sihat
+      const isHealthyWave = Math.random() < 0.65;
+      const pool = isHealthyWave ? healthyPool : junkPool;
+      const chosenTemplate = pool[Math.floor(Math.random() * pool.length)];
+
+      // Posisi X rawak (antara 14% hingga 86%) untuk setiap gelanggang
+      const xPercentBlue = Math.floor(Math.random() * 72) + 14;
+      const xPercentYellow = Math.floor(Math.random() * 72) + 14;
+
+      createFallingElement(teamBlue, itemsBlueEl, chosenTemplate, xPercentBlue);
+      createFallingElement(teamYellow, itemsYellowEl, chosenTemplate, xPercentYellow);
+    }
+
+    function createFallingElement(teamObj, containerEl, template, xPercent) {
+      const el = document.createElement('div');
+      el.className = `falling-food ${template.isHealthy ? 'good' : 'bad'}`;
+      el.style.left = `${xPercent}%`;
+      el.style.top = `-50px`;
+      el.innerHTML = `
+        <div class="food-bubble">${template.svg}</div>
+        <div class="food-caption">${template.name}</div>
+      `;
+      containerEl.appendChild(el);
+
+      teamObj.items.push({
+        xPct: xPercent,
+        y: -50,
+        isHealthy: template.isHealthy,
+        name: template.name,
+        el: el
+      });
+    }
+
+    function showPopText(arenaEl, xPct, yPx, text, isGood) {
+      const pop = document.createElement('div');
+      pop.className = 'score-pop';
+      pop.style.left = `${xPct}%`;
+      pop.style.top = `${yPx}px`;
+      pop.style.background = isGood ? 'rgba(6, 78, 59, 0.95)' : 'rgba(136, 19, 55, 0.95)';
+      pop.style.border = `2px solid ${isGood ? '#10b981' : '#f43f5e'}`;
+      pop.style.color = '#ffffff';
+      pop.textContent = text;
+      arenaEl.appendChild(pop);
+      setTimeout(() => pop.remove(), 900);
+    }
+
+    // Gelung Utama 60fps
+    function updateLoop(timestamp) {
+      const dt = Math.min(0.05, (timestamp - lastFrameTime) / 1000);
+      lastFrameTime = timestamp;
+
+      // Licinkan pergerakan Troli Biru & Kuning (Lerp)
+      teamBlue.currentX += (teamBlue.targetX - teamBlue.currentX) * 0.35;
+      teamYellow.currentX += (teamYellow.targetX - teamYellow.currentX) * 0.35;
+
+      cartBlueEl.style.left = `${teamBlue.currentX}%`;
+      dotBlueEl.style.left = `${teamBlue.currentX}%`;
+
+      cartYellowEl.style.left = `${teamYellow.currentX}%`;
+      dotYellowEl.style.left = `${teamYellow.currentX}%`;
+
+      if (isRunning && !isRelayPaused) {
+        const arenaH = arenaBlueEl.clientHeight;
+        const fallSpeed = arenaH * 0.44;
+        const spawnInterval = 820;
+
+        if (timestamp - lastSpawnTime >= spawnInterval) {
+          spawnSymmetricalWave();
+          lastSpawnTime = timestamp;
+        }
+
+        updateSideItems(teamBlue, arenaBlueEl, scoreBlueEl, dt, fallSpeed, arenaH);
+        updateSideItems(teamYellow, arenaYellowEl, scoreYellowEl, dt, fallSpeed, arenaH);
+      }
+
+      requestAnimationFrame(updateLoop);
+    }
+
+    function updateSideItems(teamObj, arenaEl, scoreEl, dt, fallSpeed, arenaH) {
+      const catchTop = arenaH - 115;
+      const catchBottom = arenaH - 20;
+
+      for (let i = teamObj.items.length - 1; i >= 0; i--) {
+        const item = teamObj.items[i];
+        item.y += fallSpeed * dt;
+        item.el.style.top = `${item.y}px`;
+
+        // Semak pelanggaran dengan Troli (jarak melintang dalam lingkungan 16%)
+        if (
+          item.y >= catchTop &&
+          item.y <= catchBottom &&
+          Math.abs(item.xPct - teamObj.currentX) <= 16
+        ) {
+          if (item.isHealthy) {
+            teamObj.score += 10;
+            teamObj.healthyCount++;
+            playSound('good');
+            showPopText(arenaEl, item.xPct, item.y, `+10 (${item.name})`, true);
+          } else {
+            teamObj.score = Math.max(0, teamObj.score - 10);
+            teamObj.junkCount++;
+            playSound('bad');
+            showPopText(arenaEl, item.xPct, item.y, `-10 Elak ${item.name}!`, false);
+          }
+
+          scoreEl.textContent = teamObj.score;
+          item.el.remove();
+          teamObj.items.splice(i, 1);
+          continue;
+        }
+
+        if (item.y > arenaH + 60) {
+          item.el.remove();
+          teamObj.items.splice(i, 1);
+        }
+      }
+    }
+
+    function finishMatch() {
+      isRunning = false;
+      if (matchTimer) clearInterval(matchTimer);
+      playSound('whistle');
+
+      document.getElementById('final-score-blue').textContent = `${teamBlue.score}`;
+      document.getElementById('final-stats-blue').textContent = `${teamBlue.healthyCount} Makanan Sihat | ${teamBlue.junkCount} Jajan`;
+
+      document.getElementById('final-score-yellow').textContent = `${teamYellow.score}`;
+      document.getElementById('final-stats-yellow').textContent = `${teamYellow.healthyCount} Makanan Sihat | ${teamYellow.junkCount} Jajan`;
+
+      const bannerEl = document.getElementById('winner-banner');
+      const subEl = document.getElementById('winner-subtext');
+      let winnerName = "Seri";
+
+      if (teamBlue.score > teamYellow.score) {
+        winnerName = "Pasukan Biru";
+        bannerEl.textContent = "PASUKAN BIRU MENANG!";
+        bannerEl.style.color = "#38bdf8";
+        subEl.textContent = "Tahniah Pasukan Biru kerana bijak memilih makanan berkhasiat!";
+      } else if (teamYellow.score > teamBlue.score) {
+        winnerName = "Pasukan Kuning";
+        bannerEl.textContent = "PASUKAN KUNING MENANG!";
+        bannerEl.style.color = "#facc15";
+        subEl.textContent = "Tahniah Pasukan Kuning kerana bijak memilih makanan berkhasiat!";
+      } else {
+        bannerEl.textContent = "KEPUTUSAN SERI!";
+        bannerEl.style.color = "#10b981";
+        subEl.textContent = "Hebat! Kedua-dua pasukan mempunyai mata yang sama banyak!";
+      }
+
+      endModalEl.style.display = 'flex';
+      saveLocalRecord(playerCountMode, teamBlue.score, teamYellow.score, winnerName);
+    }
+
+    // --- 4. KAWALAN MULTI-TOUCH SKRIN, TETIKUS & PAPAN KEKUNCI (FALLBACK) ---
+    function handleScreenPoint(clientX) {
+      const halfW = window.innerWidth / 2;
+      if (clientX < halfW) {
+        // Separuh Kiri Skrin -> Kawal Troli Biru
+        const pct = (clientX / halfW) * 100;
+        teamBlue.targetX = Math.max(12, Math.min(88, pct));
+      } else {
+        // Separuh Kanan Skrin -> Kawal Troli Kuning
+        const pct = ((clientX - halfW) / halfW) * 100;
+        teamYellow.targetX = Math.max(12, Math.min(88, pct));
+      }
+    }
+
+    window.addEventListener('pointermove', (e) => {
+      handleScreenPoint(e.clientX);
+    });
+
+    window.addEventListener('touchmove', (e) => {
+      for (let i = 0; i < e.touches.length; i++) {
+        handleScreenPoint(e.touches[i].clientX);
+      }
+    }, { passive: true });
+
+    window.addEventListener('keydown', (e) => {
+      // Kekunci A & D untuk Pasukan Biru
+      if (e.key === 'a' || e.key === 'A') teamBlue.targetX = Math.max(12, teamBlue.targetX - 16);
+      if (e.key === 'd' || e.key === 'D') teamBlue.targetX = Math.min(88, teamBlue.targetX + 16);
+      // Anak Panah Kiri & Kanan untuk Pasukan Kuning
+      if (e.key === 'ArrowLeft') teamYellow.targetX = Math.max(12, teamYellow.targetX - 16);
+      if (e.key === 'ArrowRight') teamYellow.targetX = Math.min(88, teamYellow.targetX + 16);
+    });
+
+    // --- 5. KAWALAN KAMERA PINTAR DUA ZON (ANTI-SILANG & TAPIS ORANG BELAKANG) ---
+    const videoElement = document.getElementById('webcam-video');
+    const camStatusEl = document.getElementById('cam-status');
+    const MIN_HAND_SIZE = 0.08;
+
+    function getHandSize(landmarks) {
+      const dx = landmarks[0].x - landmarks[9].x;
+      const dy = landmarks[0].y - landmarks[9].y;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function onHandsResults(results) {
+      if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) return;
+
+      let bestLeftHand = null;
+      let maxLeftSize = 0;
+
+      let bestRightHand = null;
+      let maxRightSize = 0;
+
+      for (const lm of results.multiHandLandmarks) {
+        const size = getHandSize(lm);
+        if (size < MIN_HAND_SIZE) continue; // Abaikan penonton yang berdiri jauh di belakang
+
+        const mirroredX = 1 - lm[9].x; // 0.0 (Kiri Skrin) hingga 1.0 (Kanan Skrin)
+
+        if (mirroredX < 0.5) {
+          // Berada dalam Zon Kiri (Pasukan Biru)
+          if (size > maxLeftSize) {
+            maxLeftSize = size;
+            bestLeftHand = mirroredX;
+          }
+        } else {
+          // Berada dalam Zon Kanan (Pasukan Kuning)
+          if (size > maxRightSize) {
+            maxRightSize = size;
+            bestRightHand = mirroredX;
+          }
+        }
+      }
+
+      if (bestLeftHand !== null) {
+        activeControlUsed = "Kamera (Multiplayer)";
+        const localPct = (bestLeftHand / 0.5) * 100;
+        teamBlue.targetX = Math.max(12, Math.min(88, localPct));
+      }
+
+      if (bestRightHand !== null) {
+        activeControlUsed = "Kamera (Multiplayer)";
+        const localPct = ((bestRightHand - 0.5) / 0.5) * 100;
+        teamYellow.targetX = Math.max(12, Math.min(88, localPct));
+      }
+    }
+
+    async function initCamera() {
+      try {
+        const hands = new Hands({
+          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+
+        hands.setOptions({
+          maxNumHands: 4,      // Kesan sehingga 4 tangan serentak
+          modelComplexity: 0,  // Model ringan supaya kekal 60fps untuk 2-4 pemain
+          minDetectionConfidence: 0.55,
+          minTrackingConfidence: 0.55
+        });
+
+        hands.onResults(onHandsResults);
+
+        const camera = new Camera(videoElement, {
+          onFrame: async () => {
+            await hands.send({ image: videoElement });
+          },
+          width: 640,
+          height: 480
+        });
+
+        await camera.start();
+        camStatusEl.textContent = "Kamera Aktif: Pemain Biru di Kiri, Pemain Kuning di Kanan! (Tiada video dirakam).";
+        camStatusEl.style.color = "#facc15";
+      } catch (err) {
+        console.warn("Kamera tidak dapat diakses, guna sentuhan skrin/kekunci:", err);
+        camStatusEl.textContent = "Mod Sentuhan/Kekunci Aktif (Sentuh separuh kiri & kanan skrin).";
+      }
+    }
+
+    // --- 6. SISTEM REKOD LAPORAN TEMPATAN (KIRA BILANGAN PESERTA 2 ATAU 4 ORANG) ---
+    const STORAGE_KEY = "rekod_pertempuran_troli";
+
+    function getRecords() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveLocalRecord(numPlayers, scoreB, scoreY, winner) {
+      const existing = getRecords();
+      const now = new Date();
+      const tarikh = now.toLocaleDateString('en-GB', { timeZone: 'Asia/Kuching' });
+      const masa = now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Kuching' });
+
+      existing.push({
+        bil: existing.length + 1,
+        tarikhMasa: `${tarikh} ${masa}`,
+        bilanganPemain: numPlayers,
+        skorBiru: scoreB,
+        skorKuning: scoreY,
+        pemenang: winner,
+        modKawalan: activeControlUsed
+      });
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
+      updateReportButtonUI();
+    }
+
+    function updateReportButtonUI() {
+      const existing = getRecords();
+      const totalParticipants = existing.reduce((sum, r) => sum + Number(r.bilanganPemain || 2), 0);
+      const btn = document.getElementById('btn-open-report');
+      if (btn) btn.textContent = `Laporan (${totalParticipants} Peserta)`;
+    }
+
+    function openReportModal() {
+      const existing = getRecords();
+      const box = document.getElementById('report-summary-box');
+
+      if (existing.length === 0) {
+        box.innerHTML = "Belum ada rekod perlawanan setakat ini.";
+      } else {
+        const totalMatches = existing.length;
+        const totalParticipants = existing.reduce((sum, r) => sum + Number(r.bilanganPemain || 2), 0);
+        const matches2P = existing.filter(r => Number(r.bilanganPemain) === 2).length;
+        const matches4P = existing.filter(r => Number(r.bilanganPemain) === 4).length;
+
+        box.innerHTML = `
+          <div><strong>Modul:</strong> Pertempuran Troli Sihat (Multiplayer)</div>
+          <div><strong>Jumlah Pusingan Perlawanan:</strong> ${totalMatches} pusingan (${matches2P}x 1v1, ${matches4P}x 2v2)</div>
+          <div><strong>Jumlah Keseluruhan Peserta:</strong> <span style="color:#facc15; font-weight:900;">${totalParticipants} orang</span></div>
+          <div><strong>Rekod Terakhir:</strong> ${existing[existing.length - 1].tarikhMasa}</div>
+        `;
+      }
+      reportModalEl.style.display = 'flex';
+    }
+
+    function closeReportModal() {
+      reportModalEl.style.display = 'none';
+    }
+
+    function downloadCSVReport() {
+      const existing = getRecords();
+      if (existing.length === 0) {
+        alert("Tiada data pemain untuk dimuat turun.");
+        return;
+      }
+
+      let csv = "Bil Pusingan,Tarikh dan Masa,Bilangan Peserta,Skor Pasukan Biru,Skor Pasukan Kuning,Pemenang,Mod Kawalan\n";
+      existing.forEach(r => {
+        csv += `${r.bil},"${r.tarikhMasa}",${r.bilanganPemain},${r.skorBiru},${r.skorKuning},"${r.pemenang}","${r.modKawalan}"\n`;
+      });
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", "Laporan_Output_Pertempuran_Troli.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function clearLocalRecords() {
+      if (confirm("Padam semua rekod peserta bagi modul Pertempuran Troli ini?")) {
+        localStorage.removeItem(STORAGE_KEY);
+        updateReportButtonUI();
+        openReportModal();
+      }
+    }
+
+    // Mulakan Enjin
+    updateReportButtonUI();
+    requestAnimationFrame(updateLoop);
+    initCamera();
+  </script>
+</body>
+</html>
