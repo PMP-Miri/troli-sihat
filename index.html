@@ -280,59 +280,23 @@
       box-shadow: 0 0 14px var(--yellow-team);
     }
 
-    /* Objek Makanan Jatuh */
+    /* Objek Makanan Jatuh (gambar penuh tanpa bulatan & label) */
     .falling-food {
       position: absolute;
-      width: 86px;
+      width: 96px;
       height: 96px;
       transform: translate(-50%, -50%);
       z-index: 25;
       pointer-events: none;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
     }
 
-    .food-bubble {
-      width: 68px;
-      height: 68px;
-      border-radius: 50%;
-      background: #ffffff;
-      padding: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 6px 16px rgba(0,0,0,0.5);
-    }
-
-    .falling-food.good .food-bubble {
-      border: 4px solid var(--good-green);
-    }
-
-    .falling-food.bad .food-bubble {
-      border: 4px solid var(--bad-red);
-    }
-
-    .food-caption {
-      margin-top: 3px;
-      font-size: 0.7rem;
-      font-weight: 800;
-      padding: 2px 7px;
-      border-radius: 6px;
-      white-space: nowrap;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.6);
-    }
-
-    .falling-food.good .food-caption {
-      background: #064e3b;
-      color: #a7f3d0;
-      border: 1px solid var(--good-green);
-    }
-
-    .falling-food.bad .food-caption {
-      background: #881337;
-      color: #fecdd3;
-      border: 1px solid var(--bad-red);
+    .falling-food svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      overflow: visible;
+      /* Bayang gelap supaya gambar jelas di atas latar kamera */
+      filter: drop-shadow(0 0 2px rgba(255,255,255,0.85)) drop-shadow(0 6px 8px rgba(0,0,0,0.65));
     }
 
     /* Popup Markah Terapung */
@@ -477,8 +441,7 @@
 
     @media (max-width: 720px) {
       .player-cart { width: 96px; height: 74px; }
-      .falling-food { width: 70px; height: 80px; }
-      .food-bubble { width: 54px; height: 54px; }
+      .falling-food { width: 74px; height: 74px; }
       .zone-watermark { font-size: 0.7rem; padding: 4px 10px; }
     }
   </style>
@@ -649,60 +612,60 @@
   </div>
 
   <script>
-    // --- 1. KATALOG MAKANAN PASAR RAYA (LUKISAN SVG BERSIH TANPA EMOJI) ---
+    // --- 1. KATALOG MAKANAN PASAR RAYA (LUKISAN SVG TERPERINCI, TANPA LABEL) ---
     const MARKET_ITEMS = [
       // MAKANAN SIHAT (+10 MARKAH)
       {
         name: "Sayur Sawi",
         isHealthy: true,
-        svg: `<svg viewBox="0 0 100 100"><rect x="40" y="55" width="20" height="32" rx="4" fill="#84cc16" stroke="#0f172a" stroke-width="4"/><circle cx="35" cy="44" r="18" fill="#15803d" stroke="#0f172a" stroke-width="4"/><circle cx="65" cy="44" r="18" fill="#15803d" stroke="#0f172a" stroke-width="4"/><circle cx="50" cy="30" r="20" fill="#22c55e" stroke="#0f172a" stroke-width="4"/></svg>`
+        svg: `<svg viewBox="0 0 100 100"><path d="M50 94 C39 94 35 82 37 64 L43 42 L57 42 L63 64 C65 82 61 94 50 94 Z" fill="#ecfccb" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/><path d="M45 58 L43 90 M50 56 L50 92 M55 58 L57 90" stroke="#a3e635" stroke-width="2.5" fill="none"/><path d="M45 52 C20 50 10 24 26 8 C38 12 46 30 46 52 Z" fill="#15803d" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/><path d="M55 52 C80 50 90 24 74 8 C62 12 54 30 54 52 Z" fill="#15803d" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/><path d="M50 56 C34 44 34 16 50 4 C66 16 66 44 50 56 Z" fill="#22c55e" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/><path d="M50 10 L50 50 M28 14 L44 48 M72 14 L56 48" stroke="#bbf7d0" stroke-width="2" fill="none" stroke-linecap="round"/></svg>`
       },
       {
         name: "Ikan Segar",
         isHealthy: true,
-        svg: `<svg viewBox="0 0 100 100"><path d="M74 50 L94 32 L94 68 Z" fill="#f97316" stroke="#0f172a" stroke-width="4"/><ellipse cx="46" cy="50" rx="32" ry="20" fill="#38bdf8" stroke="#0f172a" stroke-width="4"/><circle cx="28" cy="45" r="4" fill="#0f172a"/></svg>`
+        svg: `<svg viewBox="0 0 100 100"><path d="M70 50 L96 28 L89 50 L96 72 Z" fill="#0284c7" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/><path d="M38 33 C44 20 58 22 62 37 Z" fill="#0284c7" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/><path d="M42 67 C46 77 56 76 58 64 Z" fill="#0284c7" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/><path d="M6 50 C18 26 52 22 74 50 C52 78 18 74 6 50 Z" fill="#7dd3fc" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/><path d="M10 54 C24 68 50 70 68 56 C50 64 26 62 10 54 Z" fill="#e0f2fe"/><path d="M28 38 C33 45 33 55 28 62" stroke="#0f172a" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M40 44 q4 4 0 8 M48 40 q4 4 0 8 M48 50 q4 4 0 8 M56 44 q4 4 0 8" stroke="#0369a1" stroke-width="2" fill="none"/><circle cx="19" cy="46" r="5.5" fill="#ffffff" stroke="#0f172a" stroke-width="2.5"/><circle cx="18" cy="46" r="2.6" fill="#0f172a"/></svg>`
       },
       {
         name: "Susu Segar",
         isHealthy: true,
-        svg: `<svg viewBox="0 0 100 100"><path d="M30 34 L42 18 L70 18 L70 34 Z" fill="#38bdf8" stroke="#0f172a" stroke-width="4"/><rect x="30" y="34" width="40" height="52" rx="4" fill="#f8fafc" stroke="#0f172a" stroke-width="4"/><rect x="30" y="48" width="40" height="18" fill="#0284c7"/></svg>`
+        svg: `<svg viewBox="0 0 100 100"><path d="M28 32 L40 12 L60 12 L72 32 Z" fill="#e2e8f0" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/><rect x="40" y="5" width="20" height="8" rx="1" fill="#e2e8f0" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/><path d="M28 32 L72 32 L72 92 L28 92 Z" fill="#ffffff" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/><rect x="28" y="44" width="44" height="34" fill="#0284c7" stroke="#0f172a" stroke-width="3"/><path d="M50 49 C44 57 43 61 50 63 C57 61 56 57 50 49 Z" fill="#ffffff"/><text x="50" y="74" text-anchor="middle" font-family="Arial, sans-serif" font-weight="900" font-size="10" fill="#ffffff">SUSU</text></svg>`
       },
       {
         name: "Epal Merah",
         isHealthy: true,
-        svg: `<svg viewBox="0 0 100 100"><path d="M50 28 C34 18, 18 32, 22 58 C25 80, 42 88, 50 82 C58 88, 75 80, 78 58 C82 32, 66 18, 50 28 Z" fill="#ef4444" stroke="#0f172a" stroke-width="4"/><path d="M52 20 C62 14, 70 20, 60 26 Z" fill="#22c55e"/></svg>`
+        svg: `<svg viewBox="0 0 100 100"><path d="M50 30 C34 18 14 30 18 58 C21 82 40 94 50 86 C60 94 79 82 82 58 C86 30 66 18 50 30 Z" fill="#dc2626" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/><path d="M30 40 C26 48 26 58 29 64" stroke="#fca5a5" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M50 30 C50 22 52 16 56 10" stroke="#78350f" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M55 18 C62 8 76 10 78 14 C72 22 62 24 55 18 Z" fill="#22c55e" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/></svg>`
       },
       {
         name: "Buah Pisang",
         isHealthy: true,
-        svg: `<svg viewBox="0 0 100 100"><path d="M24 72 C48 82, 78 65, 82 24 C72 20, 70 24, 66 32 C60 56, 42 64, 22 60 Z" fill="#facc15" stroke="#0f172a" stroke-width="4"/></svg>`
+        svg: `<svg viewBox="0 0 100 100"><path d="M20 58 C36 86 74 84 88 52 C82 50 80 52 76 56 C64 72 42 72 28 54 Z" fill="#fde047" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/><path d="M18 46 C28 78 70 80 86 42 C80 40 78 42 74 46 C62 64 40 64 26 42 Z" fill="#facc15" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/><path d="M22 34 C28 66 66 72 84 32 C78 30 76 32 72 36 C60 54 38 54 30 30 Z" fill="#eab308" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/><path d="M24 26 L32 30 L30 36 L22 34 Z" fill="#65a30d" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/><circle cx="86" cy="38" r="3" fill="#3f2a14"/><circle cx="88" cy="48" r="3" fill="#3f2a14"/><circle cx="89" cy="56" r="3" fill="#3f2a14"/></svg>`
       },
       {
         name: "Lobak Merah",
         isHealthy: true,
-        svg: `<svg viewBox="0 0 100 100"><path d="M50 18 L40 8 M50 18 L50 6 M50 18 L60 8" stroke="#16a34a" stroke-width="5" stroke-linecap="round"/><path d="M32 22 L68 22 L50 90 Z" fill="#f97316" stroke="#0f172a" stroke-width="4" stroke-linejoin="round"/></svg>`
+        svg: `<svg viewBox="0 0 100 100"><path d="M50 26 C42 14 34 10 26 12 C32 18 40 24 46 28 Z" fill="#16a34a" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/><path d="M50 26 C58 14 66 10 74 12 C68 18 60 24 54 28 Z" fill="#16a34a" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/><path d="M50 28 C46 18 48 8 52 2 C56 10 56 20 52 28 Z" fill="#22c55e" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/><path d="M32 30 C40 22 60 22 68 30 C66 50 56 76 50 96 C44 76 34 50 32 30 Z" fill="#f97316" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/><path d="M38 42 L48 42 M52 52 L62 52 M40 62 L49 62 M51 74 L57 74" stroke="#c2410c" stroke-width="2.5" stroke-linecap="round"/></svg>`
       },
 
       // MAKANAN TIDAK SIHAT (-10 MARKAH)
       {
         name: "Air Gas Manis",
         isHealthy: false,
-        svg: `<svg viewBox="0 0 100 100"><rect x="30" y="20" width="40" height="64" rx="6" fill="#ef4444" stroke="#0f172a" stroke-width="4"/><path d="M30 44 L70 56" stroke="#ffffff" stroke-width="6"/></svg>`
+        svg: `<svg viewBox="0 0 100 100"><path d="M30 18 L70 18 L72 26 L72 82 L70 90 L30 90 L28 82 L28 26 Z" fill="#dc2626" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/><ellipse cx="50" cy="18" rx="20" ry="5" fill="#cbd5e1" stroke="#0f172a" stroke-width="3"/><rect x="45" y="14" width="10" height="5" rx="2" fill="#94a3b8" stroke="#0f172a" stroke-width="1.5"/><path d="M28 52 C40 42 58 64 72 50 L72 60 C58 74 40 52 28 62 Z" fill="#ffffff"/><text x="50" y="44" text-anchor="middle" font-family="Arial, sans-serif" font-weight="900" font-size="11" fill="#ffffff">SODA</text><path d="M28 84 L72 84" stroke="#94a3b8" stroke-width="3"/><circle cx="38" cy="74" r="2.5" fill="#fecaca"/><circle cx="46" cy="70" r="2" fill="#fecaca"/><circle cx="60" cy="74" r="2.5" fill="#fecaca"/></svg>`
       },
       {
         name: "Donat Gula",
         isHealthy: false,
-        svg: `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="32" fill="#f59e0b" stroke="#0f172a" stroke-width="4"/><circle cx="50" cy="50" r="24" fill="#ec4899"/><circle cx="50" cy="50" r="10" fill="#ffffff" stroke="#0f172a" stroke-width="4"/></svg>`
+        svg: `<svg viewBox="0 0 100 100"><path fill-rule="evenodd" d="M50 14 A36 34 0 1 1 49.9 14 Z M50 40 A11 10 0 1 0 50.1 40 Z" fill="#d97706" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/><path fill-rule="evenodd" d="M50 20 C70 18 82 30 82 46 C84 52 78 56 76 62 C72 70 66 66 62 74 C54 80 46 74 38 76 C28 74 26 66 20 60 C16 52 18 46 18 40 C22 26 36 20 50 20 Z M50 39 A12 11 0 1 0 50.1 39 Z" fill="#f472b6" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/><path d="M34 32 l5 2 M60 28 l4 4 M70 44 l-2 5 M30 52 l5 -2 M44 64 l4 3 M62 60 l5 -1 M42 28 l-1 5 M24 42 l4 3" stroke="#fde047" stroke-width="3.5" stroke-linecap="round"/><path d="M52 30 l4 1 M68 54 l3 3 M36 62 l-3 3" stroke="#38bdf8" stroke-width="3.5" stroke-linecap="round"/></svg>`
       },
       {
         name: "Sosej Proses",
         isHealthy: false,
-        svg: `<svg viewBox="0 0 100 100"><path d="M24 68 C16 58, 28 24, 68 24 C82 24, 86 40, 72 48 C52 58, 40 78, 24 68 Z" fill="#b91c1c" stroke="#0f172a" stroke-width="4"/></svg>`
+        svg: `<svg viewBox="0 0 100 100"><path d="M12 54 C12 36 30 30 50 30 C70 30 88 36 88 54 Z" fill="#fbbf24" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/><rect x="4" y="42" width="92" height="18" rx="9" fill="#b45309" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/><path d="M18 47 L82 47" stroke="#fca5a5" stroke-width="3" stroke-linecap="round" opacity="0.7"/><path d="M14 53 L22 47 L30 53 L38 47 L46 53 L54 47 L62 53 L70 47 L78 53 L86 47" stroke="#fde047" stroke-width="3.5" fill="none" stroke-linejoin="round"/><path d="M10 58 C10 74 22 82 50 82 C78 82 90 74 90 58 Z" fill="#f59e0b" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/></svg>`
       },
       {
         name: "Gula Lolipop",
         isHealthy: false,
-        svg: `<svg viewBox="0 0 100 100"><rect x="47" y="54" width="6" height="36" fill="#cbd5e1" stroke="#0f172a" stroke-width="3"/><circle cx="50" cy="38" r="24" fill="#a855f7" stroke="#0f172a" stroke-width="4"/></svg>`
+        svg: `<svg viewBox="0 0 100 100"><rect x="46" y="58" width="8" height="38" rx="3" fill="#f1f5f9" stroke="#0f172a" stroke-width="3"/><circle cx="50" cy="38" r="30" fill="#a855f7" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/><path d="M50 38 m0 -3 a3 3 0 0 1 3 3 a6 6 0 0 1 -6 6 a9 9 0 0 1 -9 -9 a12 12 0 0 1 12 -12 a15 15 0 0 1 15 15 a18 18 0 0 1 -18 18 a21 21 0 0 1 -21 -21 a24 24 0 0 1 24 -24" stroke="#fde047" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M30 26 C34 18 42 14 48 14" stroke="#ffffff" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.7"/></svg>`
       }
     ];
 
@@ -884,10 +847,7 @@
       el.className = `falling-food ${template.isHealthy ? 'good' : 'bad'}`;
       el.style.left = `${xPercent}%`;
       el.style.top = `-50px`;
-      el.innerHTML = `
-        <div class="food-bubble">${template.svg}</div>
-        <div class="food-caption">${template.name}</div>
-      `;
+      el.innerHTML = template.svg;
       containerEl.appendChild(el);
 
       teamObj.items.push({
